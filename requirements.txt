@@ -2,6 +2,8 @@ mediapipe>=0.10.0
 opencv-python>=4.8.0
 numpy>=1.24.0
 protobuf>=3.20.0
+pytesseract  
 
-docker build -t mp-autoflip . -f docker/Dockerfile
-docker run --rm mp-autoflip python -c "import mediapipe, cv2; print('Setup OK')"
+
+#docker build -t mp-autoflip . -f docker/Dockerfile
+#docker run --rm mp-autoflip python -c "import mediapipe, cv2; print('Setup OK')"

@@ -12,49 +12,37 @@ class FaceDetector:
             min_confidence: Minimum detection confidence threshold
         """
         self.min_confidence = min_confidence
-        self.mp_face_detection = mp.solutions.face_detection
-        self.detector = self.mp_face_detection.FaceDetection(
-            min_detection_confidence=min_confidence
+        self.mp_face_mesh = mp.solutions.face_mesh
+        self.detector = self.mp_face_mesh.FaceMesh(
+        static_image_mode=False,
+        max_num_faces=1,
+        refine_landmarks=False,
+        min_detection_confidence=min_confidence
         )
-    
+
     def detect(self, frame_bgr: np.ndarray) -> Tuple[Optional[Tuple[int, int, int, int]], float]:
-        """
-        Detect largest face in frame
-        
-        Args:
-            frame_bgr: Input frame in BGR format
-            
-        Returns:
-            ((x1, y1, x2, y2), confidence) or (None, 0.0) if no face found
-        """
-        # Convert BGR to RGB for MediaPipe
         rgb_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        
-        # Process frame
         results = self.detector.process(rgb_frame)
-        
-        if not results.detections:
+
+        if not results.multi_face_landmarks:
+            print("No faces detected")
             return None, 0.0
-        
-        # Get frame dimensions
+
+        # Get face landmarks and create bounding box
+        face_landmarks = results.multi_face_landmarks[0]  # First face
         h, w = frame_bgr.shape[:2]
-        
-        # Find largest detection (assume main speaker)
-        best_detection = max(results.detections, 
-                           key=lambda d: (d.location_data.relative_bounding_box.width * 
-                                        d.location_data.relative_bounding_box.height))
-        
-        # Extract bounding box
-        bbox = best_detection.location_data.relative_bounding_box
-        confidence = best_detection.score[0]
-        
-        # Convert relative coordinates to absolute pixels
-        x1 = int(bbox.xmin * w)
-        y1 = int(bbox.ymin * h) 
-        x2 = int((bbox.xmin + bbox.width) * w)
-        y2 = int((bbox.ymin + bbox.height) * h)
-        
-        return (x1, y1, x2, y2), confidence
+
+        # Get min/max coordinates from landmarks
+        x_coords = [lm.x * w for lm in face_landmarks.landmark]
+        y_coords = [lm.y * h for lm in face_landmarks.landmark]
+
+        x1, x2 = int(min(x_coords)), int(max(x_coords))
+        y1, y2 = int(min(y_coords)), int(max(y_coords))
+
+        confidence = 0.9  # Face Mesh doesn't give confidence, assume high
+        print(f"Face detected at ({x1},{y1},{x2},{y2})")
+
+        return (x1, y1, x2, y2), confidence    
     
     def expand_face_bbox(self, bbox: Tuple[int, int, int, int], 
                         frame_shape: Tuple[int, int], 
@@ -95,14 +83,36 @@ class FaceDetector:
 
 # Test function
 def test_face_detection():
-    """Test face detection on a sample image/frame"""
-    detector = FaceDetector(min_confidence=0.6)
+    """Test face detection on actual video"""
+    detector = FaceDetector(min_confidence=0.3)  # Lower confidence
     
-    # Create a dummy frame for testing
-    test_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-    bbox, conf = detector.detect(test_frame)
-    print(f"Detection result: {bbox}, confidence: {conf}")
+    # Use actual video instead of dummy frame
+    cap = cv2.VideoCapture("data/samples.mp4")  # Your video path
     
+    if not cap.isOpened():
+        print("Cannot open video - using webcam")
+        cap = cv2.VideoCapture(0)
+    
+    frame_count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+            
+        frame_count += 1
+        bbox, conf = detector.detect(frame)
+        
+        if bbox:
+            print(f"Frame {frame_count}: Face found! Confidence: {conf:.2f}")
+            break
+        elif frame_count % 30 == 0:  # Print every 30 frames
+            print(f"Frame {frame_count}: No face yet...")
+        
+        if frame_count > 300:  # Stop after 10 seconds at 30fps
+            print("No face found in first 300 frames")
+            break
+    
+    cap.release()
     detector.close()
 
 if __name__ == "__main__":
