@@ -20,7 +20,7 @@ def test_day2_integration():
     hints = AutoFlipHints()
     
     # Test video
-    video_path = "data/samples/s5.mp4"
+    video_path = "data/samples/s1.mp4"
     cap = cv2.VideoCapture(video_path)
     
     if not cap.isOpened():
@@ -76,7 +76,7 @@ def test_day2_integration():
                 print(f"Processed frame {frame_count}, face: {stable_face is not None}, slide: {stable_slide is not None}")
             
             # Process limited frames for testing
-            if frame_count > 9000:  # ~10 seconds
+            if frame_count > 900:  # ~10 seconds
                 break
                 
     except KeyboardInterrupt:
