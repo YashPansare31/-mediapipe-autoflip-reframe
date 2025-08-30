@@ -1,65 +1,142 @@
+import sys
 import numpy as np
-from typing import Optional, Tuple, List, Deque
+from typing import Optional, Tuple, List, Deque, Dict
 from collections import deque
+import cv2
 
-class EMATracker:
-    """Exponential Moving Average tracker for smooth bounding boxes"""
+class AdvancedEMATracker:
+    """Enhanced EMA tracker with adaptive smoothing"""
     
-    def __init__(self, alpha: float = 0.3):
-        """
-        Args:
-            alpha: Smoothing factor (0 = no update, 1 = no smoothing)
-        """
-        self.alpha = alpha
+    def __init__(self, alpha: float = 0.3, adaptive: bool = True):
+        self.base_alpha = alpha
+        self.adaptive = adaptive
         self.current_bbox: Optional[Tuple[int, int, int, int]] = None
         self.confidence_history: Deque[float] = deque(maxlen=10)
+        self.velocity_history: Deque[float] = deque(maxlen=5)
+        self.lost_frames = 0
     
     def update(self, bbox: Optional[Tuple[int, int, int, int]], confidence: float = 1.0) -> Optional[Tuple[int, int, int, int]]:
-        """
-        Update tracker with new detection
-        
-        Args:
-            bbox: New bounding box (x1, y1, x2, y2) or None
-            confidence: Detection confidence
-            
-        Returns:
-            Smoothed bounding box or None
-        """
+        """Enhanced update with adaptive smoothing"""
         self.confidence_history.append(confidence)
         
         if bbox is None:
-            # No detection - keep previous if confidence history is good
-            avg_confidence = sum(self.confidence_history) / len(self.confidence_history)
-            if avg_confidence > 0.5 and self.current_bbox is not None:
-                return self.current_bbox  # Hold previous detection
+            self.lost_frames += 1
+            # Keep previous detection for short periods
+            if self.lost_frames < 15 and self.current_bbox is not None:
+                return self.current_bbox
             else:
                 self.current_bbox = None
                 return None
         
+        self.lost_frames = 0
+        
         if self.current_bbox is None:
-            # First detection
             self.current_bbox = bbox
             return bbox
         
-        # Smooth with EMA
+        # Calculate movement velocity for adaptive smoothing
+        current_center = self._get_center(bbox)
+        prev_center = self._get_center(self.current_bbox)
+        velocity = np.linalg.norm(np.array(current_center) - np.array(prev_center))
+        self.velocity_history.append(velocity)
+        
+        # Adaptive alpha based on movement and confidence
+        alpha = self.base_alpha
+        if self.adaptive:
+            avg_velocity = sum(self.velocity_history) / len(self.velocity_history)
+            avg_confidence = sum(self.confidence_history) / len(self.confidence_history)
+            
+            # Higher alpha for fast movement and high confidence
+            if avg_velocity > 50 and avg_confidence > 0.7:
+                alpha = min(0.7, self.base_alpha * 2)
+            # Lower alpha for slow movement (more smoothing)
+            elif avg_velocity < 10:
+                alpha = max(0.1, self.base_alpha * 0.5)
+        
+        # Apply smoothing
+        smoothed = self._apply_ema_smoothing(bbox, alpha)
+        
+        # Movement limiting
+        smoothed = self._limit_movement(smoothed, max_movement=40)
+        
+        self.current_bbox = smoothed
+        return smoothed
+    
+    def _get_center(self, bbox: Tuple[int, int, int, int]) -> Tuple[float, float]:
+        """Get center point of bounding box"""
+        x1, y1, x2, y2 = bbox
+        return ((x1 + x2) / 2, (y1 + y2) / 2)
+    
+    def _apply_ema_smoothing(self, bbox: Tuple[int, int, int, int], alpha: float) -> Tuple[int, int, int, int]:
+        """Apply exponential moving average smoothing"""
         x1, y1, x2, y2 = bbox
         cx1, cy1, cx2, cy2 = self.current_bbox
         
-        # Apply exponential moving average
-        smooth_x1 = int(self.alpha * x1 + (1 - self.alpha) * cx1)
-        smooth_y1 = int(self.alpha * y1 + (1 - self.alpha) * cy1)
-        smooth_x2 = int(self.alpha * x2 + (1 - self.alpha) * cx2)
-        smooth_y2 = int(self.alpha * y2 + (1 - self.alpha) * cy2)
+        smooth_x1 = int(alpha * x1 + (1 - alpha) * cx1)
+        smooth_y1 = int(alpha * y1 + (1 - alpha) * cy1)
+        smooth_x2 = int(alpha * x2 + (1 - alpha) * cx2)
+        smooth_y2 = int(alpha * y2 + (1 - alpha) * cy2)
         
-        # Limit maximum movement per frame (prevent jumps)
-        max_movement = 50  # pixels
-        smooth_x1 = max(cx1 - max_movement, min(cx1 + max_movement, smooth_x1))
-        smooth_y1 = max(cy1 - max_movement, min(cy1 + max_movement, smooth_y1))
-        smooth_x2 = max(cx2 - max_movement, min(cx2 + max_movement, smooth_x2))
-        smooth_y2 = max(cy2 - max_movement, min(cy2 + max_movement, smooth_y2))
+        return (smooth_x1, smooth_y1, smooth_x2, smooth_y2)
+    
+    def _limit_movement(self, bbox: Tuple[int, int, int, int], max_movement: int) -> Tuple[int, int, int, int]:
+        """Limit maximum movement per frame"""
+        if self.current_bbox is None:
+            return bbox
         
-        self.current_bbox = (smooth_x1, smooth_y1, smooth_x2, smooth_y2)
-        return self.current_bbox
+        x1, y1, x2, y2 = bbox
+        cx1, cy1, cx2, cy2 = self.current_bbox
+        
+        # Limit each coordinate
+        limited_x1 = max(cx1 - max_movement, min(cx1 + max_movement, x1))
+        limited_y1 = max(cy1 - max_movement, min(cy1 + max_movement, y1))
+        limited_x2 = max(cx2 - max_movement, min(cx2 + max_movement, x2))
+        limited_y2 = max(cy2 - max_movement, min(cy2 + max_movement, y2))
+        
+        return (limited_x1, limited_y1, limited_x2, limited_y2)
+
+class StabilityAnalyzer:
+    """Analyzes and improves detection stability"""
+    
+    def __init__(self, stability_window: int = 30):
+        self.stability_window = stability_window
+        self.bbox_history: Deque = deque(maxlen=stability_window)
+        self.jitter_threshold = 20  # pixels
+    
+    def analyze_stability(self, bbox: Optional[Tuple[int, int, int, int]]) -> Dict:
+        """Analyze detection stability metrics"""
+        if bbox is None:
+            return {"stable": False, "jitter": 0, "confidence": 0}
+        
+        self.bbox_history.append(bbox)
+        
+        if len(self.bbox_history) < 5:
+            return {"stable": True, "jitter": 0, "confidence": 0.5}
+        
+        # Calculate jitter (movement between frames)
+        movements = []
+        for i in range(1, len(self.bbox_history)):
+            prev_center = self._get_center(self.bbox_history[i-1])
+            curr_center = self._get_center(self.bbox_history[i])
+            movement = np.linalg.norm(np.array(curr_center) - np.array(prev_center))
+            movements.append(movement)
+        
+        avg_jitter = sum(movements) / len(movements)
+        max_jitter = max(movements)
+        
+        # Stability assessment
+        is_stable = avg_jitter < self.jitter_threshold and max_jitter < self.jitter_threshold * 2
+        
+        return {
+            "stable": is_stable,
+            "jitter": avg_jitter,
+            "max_jitter": max_jitter,
+            "confidence": 1.0 if is_stable else max(0.1, 1.0 - (avg_jitter / 100))
+        }
+    
+    def _get_center(self, bbox: Tuple[int, int, int, int]) -> Tuple[float, float]:
+        x1, y1, x2, y2 = bbox
+        return ((x1 + x2) / 2, (y1 + y2) / 2)
 
 class TemporalMedianTracker:
     """Temporal median tracker for slide regions"""
@@ -78,22 +155,17 @@ class TemporalMedianTracker:
     def update(self, bbox: Optional[Tuple[int, int, int, int]]) -> Optional[Tuple[int, int, int, int]]:
         """
         Update tracker with new detection
-        
         Args:
             bbox: New bounding box or None
-            
         Returns:
             Stabilized bounding box or None
         """
         if bbox is None:
-            # No detection - return previous if available
             return self.current_bbox
         
-        # Add to history
         self.bbox_history.append(bbox)
         
         if len(self.bbox_history) < 3:
-            # Not enough history, return current
             self.current_bbox = bbox
             return bbox
         
@@ -110,12 +182,11 @@ class TemporalMedianTracker:
             int(np.median(y2_list))
         )
         
-        # Apply inertia if we have previous bbox
+        # Apply inertia
         if self.current_bbox is not None:
             cx1, cy1, cx2, cy2 = self.current_bbox
             mx1, my1, mx2, my2 = median_bbox
             
-            # Weighted average between current and median
             stable_bbox = (
                 int(self.inertia_factor * cx1 + (1 - self.inertia_factor) * mx1),
                 int(self.inertia_factor * cy1 + (1 - self.inertia_factor) * my1),
@@ -128,29 +199,87 @@ class TemporalMedianTracker:
             self.current_bbox = median_bbox
             return median_bbox
 
-# Test temporal smoothing
-def test_temporal_smoothing():
-    """Test temporal smoothing with synthetic data"""
-    face_tracker = EMATracker(alpha=0.3)
-    slide_tracker = TemporalMedianTracker(window_size=8)
+
+# Performance testing
+def benchmark_detection_speed():
+    """Benchmark detection performance"""
+    import cv2
+    import time
+    sys.path.append('../..')
     
-    # Simulate noisy detections
-    base_face = (100, 100, 200, 200)
-    base_slide = (300, 50, 800, 400)
+    from src.detectors.face_mp import FaceDetector
+    from src.detectors.zone_detector import UniversalWebinarDetector
     
-    print("Testing temporal smoothing...")
+    # Initialize detectors
+    face_detector = FaceDetector(min_confidence=0.3)
+    region_detector = UniversalWebinarDetector()
+    stability_analyzer = StabilityAnalyzer()
     
-    for i in range(20):
-        # Add noise to simulate real detections
-        noise = np.random.randint(-10, 10, 4)
-        noisy_face = tuple(np.array(base_face) + noise)
-        noisy_slide = tuple(np.array(base_slide) + noise)
+    # Test video
+    cap = cv2.VideoCapture("data/samples/s5.mp4")
+    if not cap.isOpened():
+        print("Cannot open test video")
+        return
+    
+    # Benchmark settings
+    frames_to_test = 300
+    face_times = []
+    region_times = []
+    total_times = []
+    
+    print(f"Benchmarking detection speed over {frames_to_test} frames...")
+    
+    overall_start = time.time()
+    
+    for frame_num in range(frames_to_test):
+        ret, frame = cap.read()
+        if not ret:
+            break
         
-        smooth_face = face_tracker.update(noisy_face, 0.8)
-        smooth_slide = slide_tracker.update(noisy_slide)
+        frame_start = time.time()
         
-        print(f"Frame {i}: Face {noisy_face} -> {smooth_face}")
-        print(f"Frame {i}: Slide {noisy_slide} -> {smooth_slide}")
+        # Time face detection
+        face_start = time.time()
+        face_bbox, face_conf = face_detector.detect(frame)
+        face_end = time.time()
+        face_times.append(face_end - face_start)
+        
+        # Time region detection
+        region_start = time.time()
+        face_region, slide_region = region_detector.get_regions(frame, face_bbox)
+        region_end = time.time()
+        region_times.append(region_end - region_start)
+        
+        # Analyze stability
+        stability = stability_analyzer.analyze_stability(face_region)
+        
+        frame_end = time.time()
+        total_times.append(frame_end - frame_start)
+        
+        # Progress every 50 frames
+        if frame_num % 50 == 0:
+            avg_total = sum(total_times[-50:]) / len(total_times[-50:]) * 1000
+            print(f"Frame {frame_num}: {avg_total:.1f}ms avg processing time")
+    
+    overall_end = time.time()
+    
+    cap.release()
+    face_detector.close()
+    
+    # Calculate statistics
+    avg_face_time = sum(face_times) / len(face_times) * 1000
+    avg_region_time = sum(region_times) / len(region_times) * 1000
+    avg_total_time = sum(total_times) / len(total_times) * 1000
+    
+    processing_fps = frames_to_test / (overall_end - overall_start)
+    
+    print(f"\n=== Performance Benchmark Results ===")
+    print(f"Frames processed: {len(total_times)}")
+    print(f"Face detection: {avg_face_time:.1f}ms avg")
+    print(f"Region detection: {avg_region_time:.1f}ms avg") 
+    print(f"Total per frame: {avg_total_time:.1f}ms avg")
+    print(f"Processing FPS: {processing_fps:.1f}")
+    print(f"Real-time capable: {'Yes' if processing_fps > 25 else 'No'}")
 
 if __name__ == "__main__":
-    test_temporal_smoothing()
+    benchmark_detection_speed()

@@ -3,7 +3,13 @@ opencv-python>=4.8.0
 numpy>=1.24.0
 protobuf>=3.20.0
 pytesseract  
+psutil>=5.9.0
+opencv-contrib-python>=4.8.0
+protobuf>=3.20.0
+scikit-image>=0.21.0  # For better image processing
+scipy>=1.11.0         # For advanced filtering
 
-
+tempfile>=0.4.0      # For secure temporary file handling
+shutil
 #docker build -t mp-autoflip . -f docker/Dockerfile
 #docker run --rm mp-autoflip python -c "import mediapipe, cv2; print('Setup OK')"

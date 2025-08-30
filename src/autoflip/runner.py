@@ -4,6 +4,8 @@ import os
 import tempfile
 from typing import Optional, Dict, Any
 from pathlib import Path
+import tempfile
+import shutil
 
 class AutoFlipRunner:
     """Handles running AutoFlip with external hints"""
@@ -145,9 +147,10 @@ class ManualComposer:
             fps = cap.get(cv2.CAP_PROP_FPS)
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
-            # Create output writer
+            # Create temporary video without audio
+            temp_video_only = os.path.join(tempfile.gettempdir(), f"temp_video_only_{os.getpid()}.mp4")
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(output_video, fourcc, fps, (1080, 1920))
+            out = cv2.VideoWriter(temp_video_only, fourcc, fps, (1080, 1920))
             
             print(f"Manual composition: {total_frames} frames at {fps} fps")
             
@@ -180,9 +183,64 @@ class ManualComposer:
             
             cap.release()
             out.release()
-            
-            print(f"Manual composition complete: {output_video}")
-            return True
+            # Debug: Check if input has audio
+            try:
+                probe_cmd = ['ffprobe', '-v', 'quiet', '-show_streams', '-select_streams', 'a', input_video]
+                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+
+                if 'codec_type=audio' not in probe_result.stdout:
+                    print("Warning: Input video has no audio track")
+                    return True  # Video processing succeeded, just no audio to copy
+                else:
+                    print("Input video has audio, proceeding with merge...")
+            except:
+                print("Could not check audio stream, proceeding...")
+                        
+                        
+            # Merge video with original audio using FFmpeg
+            print("Adding audio track...")
+            try:
+                # First try copying audio directly
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-i', temp_video_only,
+                    '-i', input_video,
+                    '-c:v', 'copy',
+                    '-c:a', 'copy',
+                    '-shortest',
+                    output_video
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if result.returncode != 0:
+                    print("Direct copy failed, trying with re-encoding...")
+                    # Fallback: re-encode audio
+                    cmd = [
+                        'ffmpeg', '-y',
+                        '-i', temp_video_only,
+                        '-i', input_video,
+                        '-c:v', 'copy',
+                        '-c:a', 'aac',
+                        '-b:a', '128k',
+                        '-shortest',
+                        output_video
+                    ]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    print("Audio successfully added")
+                    os.remove(temp_video_only)
+                    return True
+                else:
+                    print(f"Audio merging failed: {result.stderr}")
+                    shutil.move(temp_video_only, output_video)
+                    return True
+                    
+            except Exception as e:
+                print(f"Audio processing error: {e}")
+                shutil.move(temp_video_only, output_video)
+                return True
             
         except Exception as e:
             print(f"Manual composition failed: {e}")
@@ -199,7 +257,7 @@ def test_autoflip_integration():
     
     # Test AutoFlip execution (will likely fail without proper setup)
     success = runner.run_autoflip(
-        input_video="data/samples/s5.mp4",
+        input_video="data/samples/s7.mp4",
         output_video="test_autoflip_out.mp4", 
         config_path=config_path
     )
