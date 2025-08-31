@@ -8,16 +8,16 @@ def check_autoflip_availability():
         result = subprocess.run(['autoflip', '--help'], 
                               capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
-            print("✓ AutoFlip is installed and accessible")
+            print("OK AutoFlip is installed and accessible")
             return True
         else:
-            print("✗ AutoFlip command failed")
+            print("X AutoFlip command failed")
             return False
     except FileNotFoundError:
-        print("✗ AutoFlip not found in PATH")
+        print("X AutoFlip not found in PATH")
         return False
     except subprocess.TimeoutExpired:
-        print("✗ AutoFlip command timed out")
+        print("X AutoFlip command timed out")
         return False
 
 def install_autoflip():
@@ -49,7 +49,7 @@ scipy>=1.11.0         # For advanced filtering
     with open('requirements_enhanced.txt', 'w') as f:
         f.write(fallback_requirements)
     
-    print("✓ Enhanced requirements created: requirements_enhanced.txt")
+    print("OK Enhanced requirements created: requirements_enhanced.txt")
     print("Run: pip install -r requirements_enhanced.txt")
 
 def main():

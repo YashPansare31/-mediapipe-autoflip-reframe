@@ -7,12 +7,12 @@ import cv2
 class AdvancedEMATracker:
     """Enhanced EMA tracker with adaptive smoothing"""
     
-    def __init__(self, alpha: float = 0.3, adaptive: bool = True):
+    def __init__(self, alpha: float = 0.25, adaptive: bool = True):
         self.base_alpha = alpha
         self.adaptive = adaptive
         self.current_bbox: Optional[Tuple[int, int, int, int]] = None
-        self.confidence_history: Deque[float] = deque(maxlen=10)
-        self.velocity_history: Deque[float] = deque(maxlen=5)
+        self.confidence_history: Deque[float] = deque(maxlen=12)
+        self.velocity_history: Deque[float] = deque(maxlen=6)
         self.lost_frames = 0
     
     def update(self, bbox: Optional[Tuple[int, int, int, int]], confidence: float = 1.0) -> Optional[Tuple[int, int, int, int]]:
@@ -87,6 +87,8 @@ class AdvancedEMATracker:
         x1, y1, x2, y2 = bbox
         cx1, cy1, cx2, cy2 = self.current_bbox
         
+        max_movement = 30
+
         # Limit each coordinate
         limited_x1 = max(cx1 - max_movement, min(cx1 + max_movement, x1))
         limited_y1 = max(cy1 - max_movement, min(cy1 + max_movement, y1))
@@ -141,7 +143,7 @@ class StabilityAnalyzer:
 class TemporalMedianTracker:
     """Temporal median tracker for slide regions"""
     
-    def __init__(self, window_size: int = 10, inertia_factor: float = 0.8):
+    def __init__(self, window_size: int = 12, inertia_factor: float = 0.85):
         """
         Args:
             window_size: Number of frames to consider for median

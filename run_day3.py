@@ -22,17 +22,17 @@ def run_all_day3_tests():
         try:
             result = subprocess.run(command.split(), capture_output=True, text=True, timeout=60)
             if result.returncode == 0:
-                print(f"✓ {test_name} PASSED")
+                print(f"ok {test_name} PASSED")
                 results.append((test_name, True))
             else:
-                print(f"✗ {test_name} FAILED")
+                print(f"X {test_name} FAILED")
                 print(f"Error: {result.stderr}")
                 results.append((test_name, False))
         except subprocess.TimeoutExpired:
-            print(f"⚠ {test_name} TIMEOUT")
+            print(f"ERR {test_name} TIMEOUT")
             results.append((test_name, False))
         except Exception as e:
-            print(f"✗ {test_name} ERROR: {e}")
+            print(f"X {test_name} ERROR: {e}")
             results.append((test_name, False))
     
     # Summary
@@ -47,9 +47,9 @@ def run_all_day3_tests():
     print(f"\nOverall: {passed}/{total} tests passed")
     
     if passed == total:
-        print("\n🎉 Day 3 COMPLETE! Ready for Day 4 (Polish & Documentation)")
+        print("\n Day 3 COMPLETE! Ready for Day 4 (Polish & Documentation)")
     else:
-        print(f"\n⚠ {total-passed} tests need attention before Day 4")
+        print(f"\nERR {total-passed} tests need attention before Day 4")
     
     return passed == total
 

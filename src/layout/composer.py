@@ -132,22 +132,16 @@ class EnhancedLayoutComposer:
     def _enhance_face_quality(self, face_crop: np.ndarray) -> np.ndarray:
         """Apply quality enhancements to face region"""
         enhanced = face_crop.copy()
-        
-        # Slight denoising
-        if self.enable_noise_reduction:
-            enhanced = cv2.bilateralFilter(enhanced, 9, 75, 75)
-        
-        # Gentle sharpening for video calls
-        if self.enable_sharpening:
-            kernel =  np.array([[-1, -1, -1],
-                         [-1,  9, -1], 
-                         [-1, -1, -1]])                
-            enhanced = cv2.filter2D(enhanced, -1, kernel * 0.3)
-        
-        # Slight contrast boost
-        if self.enable_contrast_enhancement:
-            enhanced = cv2.convertScaleAbs(enhanced, alpha=1.3, beta=15)
-        
+
+        # Gamma correction for dark faces
+        gray_face = cv2.cvtColor(enhanced, cv2.COLOR_BGR2GRAY)
+        if gray_face.mean() < 120:
+            # Apply gamma correction to brighten
+            gamma = 1.5  # Brighten
+            inv_gamma = 1.0 / gamma
+            table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+            enhanced = cv2.LUT(enhanced, table)
+    
         return enhanced
     
     def _enhance_slide_quality(self, slide_crop: np.ndarray) -> np.ndarray:

@@ -32,8 +32,8 @@ class PerformanceOptimizer:
         # Set number of threads
         cv2.setNumThreads(min(4, psutil.cpu_count()))
         
-        print(f"✓ OpenCV optimized: {cv2.useOptimized()}")
-        print(f"✓ OpenCV threads: {cv2.getNumThreads()}")
+        print(f"OK OpenCV optimized: {cv2.useOptimized()}")
+        print(f"OK OpenCV threads: {cv2.getNumThreads()}")
     
     def create_threaded_detector(self, detector_class, *args, **kwargs):
         """Create threaded version of detector for parallel processing"""

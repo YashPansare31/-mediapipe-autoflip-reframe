@@ -258,8 +258,8 @@ class ProductionPipeline:
        return {
            'min_face_conf': 0.3,
            'shot_threshold': 0.3,
-           'face_alpha': 0.3,
-           'slide_window': 8,
+           'face_alpha': 0.2,
+           'slide_window': 15,
            'target_bitrate': '8M',
            'preprocess_input': True,
            'enable_quality_enhancement': True,

@@ -36,12 +36,12 @@ def test_day3_complete():
         encoder = VideoEncoder()
         
         # Test with small synthetic video if no sample available
-        if not os.path.exists("data/samples/s7.mp4"):
+        if not os.path.exists("data/samples/s9.mp4"):
             print("   Creating synthetic test video...")
             _create_test_video("test_input.mp4")
             test_input = "test_input.mp4"
         else:
-            test_input = "data/samples/s7.mp4"
+            test_input = "data/samples/s9.mp4"
         
         # Get video info
         info = encoder.get_video_info(test_input)
@@ -70,7 +70,7 @@ def test_day3_complete():
     # Test 5: Complete Production Pipeline
     print("\n5. Testing complete production pipeline...")
     
-    if not os.path.exists("data/samples/s7.mp4"):
+    if not os.path.exists("data/samples/s9.mp4"):
         print("   No test video available, skipping full pipeline test")
         return True
     
@@ -91,7 +91,7 @@ def test_day3_complete():
                 print(f"   Progress: {percent:.0f}%")
         
         # Process short clip
-        input_video = "data/samples/s7.mp4"
+        input_video = "data/samples/s9.mp4"
         output_video = "output/day3_production_test.mp4"
         
         os.makedirs("output", exist_ok=True)

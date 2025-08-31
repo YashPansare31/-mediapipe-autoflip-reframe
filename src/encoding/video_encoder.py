@@ -155,6 +155,7 @@ class VideoEncoder:
 # Test video encoding
 def test_video_encoding():
     """Test video encoding pipeline"""
+
     encoder = VideoEncoder()
     
     input_video = "data/samples/s5.mp4"

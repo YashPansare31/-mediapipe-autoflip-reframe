@@ -6,7 +6,7 @@ from collections import deque
 class ShotChangeDetector:
     """Detects scene cuts and shot changes in video"""
     
-    def __init__(self, threshold: float = 0.3, history_size: int = 5):
+    def __init__(self, threshold: float = 0.35, history_size: int = 7):
         """
         Args:
             threshold: Color histogram change threshold (0-1)
