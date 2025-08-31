@@ -1,3 +1,30 @@
+"""
+Webinar Video Reframing Pipeline
+
+This module provides a complete pipeline for automatically reframing horizontal 
+webinar videos into vertical 9:16 format suitable for social media platforms.
+
+Key Features:
+- Multi-method face detection (MediaPipe + OpenCV fallbacks)
+- Universal slide/content region detection
+- Temporal smoothing and stabilization
+- Quality enhancement for faces and slides
+- Edge case handling
+- Production-ready encoding
+
+Usage:
+    from src.pipeline import WebinarReframingPipeline
+    
+    pipeline = WebinarReframingPipeline()
+    success = pipeline.process_video("input.mp4", "output.mp4")
+
+Author: Yash
+Version: 1.0
+"""
+
+
+
+
 import cv2
 import os
 from typing import Optional, Tuple
@@ -6,8 +33,8 @@ from pathlib import Path
 from .detectors.face_mp import FaceDetector
 from .detectors.zone_detector import UniversalWebinarDetector
 from .detectors.shot_detector import ShotChangeDetector, ConflictResolver
-from .trackers.temporal import EMATracker, TemporalMedianTracker
-from .layout.composer import LayoutComposer
+from .trackers.temporal import AdvancedEMATracker, TemporalMedianTracker
+from .layout import LayoutComposer
 from .autoflip.hints import AutoFlipHints
 from .autoflip.runner import AutoFlipRunner, ManualComposer
 
@@ -34,7 +61,7 @@ class WebinarReframingPipeline:
         self.conflict_resolver = ConflictResolver()
         
         # Trackers
-        self.face_tracker = EMATracker(alpha=self.config.get('face_alpha', 0.3))
+        self.face_tracker = AdvancedEMATracker(alpha=self.config.get('face_alpha', 0.25))
         self.slide_tracker = TemporalMedianTracker(
             window_size=self.config.get('slide_window', 8)
         )
@@ -155,7 +182,7 @@ class WebinarReframingPipeline:
         # Create or use existing config
         config_path = self.config.get('autoflip_config')
         if not config_path:
-            config_path = self.autoflip_runner.create_simple_config()
+            config_path = self.autoflip_runner.create_simple_config(output_path)
         
         return self.autoflip_runner.run_autoflip(
             input_path, output_path, config_path, hints_path
@@ -203,8 +230,8 @@ def test_complete_pipeline():
     pipeline = WebinarReframingPipeline(config)
     
     # Test processing
-    input_video = "data/samples/s5.mp4"
-    output_video = "output/reframed_test.mp4"
+    input_video = "data/samples/s9.mp4"
+    output_video = "Output/reframed_test.mp4"
     
     # Create output directory
     os.makedirs("output", exist_ok=True)

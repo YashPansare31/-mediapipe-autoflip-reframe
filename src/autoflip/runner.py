@@ -129,13 +129,13 @@ class ManualComposer:
         Manually compose video frames when AutoFlip unavailable
         """
         import cv2
-        from ..layout.composer import LayoutComposer
-        from ..trackers.temporal import EMATracker, TemporalMedianTracker
+        from ..layout import LayoutComposer
+        from ..trackers.temporal import AdvancedEMATracker, TemporalMedianTracker
         
         try:
             # Initialize components
             composer = LayoutComposer()
-            face_tracker = EMATracker(alpha=0.3)
+            face_tracker = AdvancedEMATracker(alpha=0.3)
             slide_tracker = TemporalMedianTracker(window_size=8)
             
             # Open input video
