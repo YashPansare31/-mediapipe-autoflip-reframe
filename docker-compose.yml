@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mp-autoflip:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: mp-autoflip:latest
+    container_name: webinar-reframer
+    volumes:
+      - ./data:/app/data
+      - ./out:/app/out
+      - ./configs:/app/configs
+    working_dir: /app
+    stdin_open: true
+    tty: true

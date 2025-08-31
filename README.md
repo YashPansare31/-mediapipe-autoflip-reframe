@@ -15,6 +15,7 @@ Automatically convert horizontal webinar videos to vertical 9:16 format for soci
 ## Quick Start
 
 ### Installation
+#### Non-Docker Setup
 
 ```bash
 # Clone the repository
@@ -31,9 +32,38 @@ pip install -r requirements.txt
 # Verify FFmpeg is installed (required for audio)
 ffmpeg -version
 ```
+### Docker (Preferred)
+#### Prerequisites
 
+ Docker Desktop installed and running
+ Git (to clone this repository)
+
+### Build
+```bash
+docker build -t mp-autoflip . -f docker/Dockerfile
+```
+### Run
+```bash
+docker run --rm -v $PWD:/work mp-autoflip python -m src.reframe \
+    --in data/input.mp4 \
+    --out out/output_916.mp4 \
+    --config configs/portrait_916.pbtxt
+```
+
+### Using Docker Compose (Alternative)
+```bash
+# Build
+docker-compose build
+
+# Run interactively
+docker-compose run --rm mp-autoflip bash
+
+# Inside container
+python -m src.reframe --in data/input.mp4 --out out/output_916.mp4 --config configs/
 ### Basic Usage
+```
 
+## Basic Usage
 ```bash
 # Simple reframing
 python -m src.cli -i webinar.mp4 -o reframed.mp4
