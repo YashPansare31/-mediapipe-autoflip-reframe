@@ -32,7 +32,7 @@ pip install -r requirements.txt
 # Verify FFmpeg is installed (required for audio)
 ffmpeg -version
 ```
-### Docker (Preferred)
+### Docker 
 #### Prerequisites
 
  Docker Desktop installed and running
